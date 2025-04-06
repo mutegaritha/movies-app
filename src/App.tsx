@@ -5,7 +5,7 @@ import Navbar from "./components/Navbar";
 import MovieGrid from "./components/MovieGrid";
 
 // Using a more reliable API key
-const OMDB_API_KEY = "4a3b711b";
+const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY || "4a3b711b";
 const YOUTUBE_API_KEY = "AIzaSyBvGZtZ6QZQZQZQZQZQZQZQZQZQZQZQZQ"; // You'll need to replace this with your actual YouTube API key
 
 const GENRES = [
@@ -75,6 +75,12 @@ function App() {
   useEffect(() => {
     const fetchMovies = async () => {
       try {
+        console.log("Starting to fetch movies...");
+        console.log(
+          "Using API key:",
+          OMDB_API_KEY ? "API key is set" : "API key is missing"
+        );
+
         // Fetch trending movies (using popular search terms)
         const trendingTerms = [
           "avengers",
@@ -159,7 +165,10 @@ function App() {
         }
       } catch (err) {
         console.error("Error fetching movies:", err);
-        setError("Failed to fetch movies. Please try again later.");
+        setError(
+          "Failed to fetch movies. Please try again later. Error: " +
+            (err instanceof Error ? err.message : String(err))
+        );
       } finally {
         setLoading(false);
       }
