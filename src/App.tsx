@@ -18,6 +18,7 @@ const getOmdbApiUrl = (params: string) => {
   if (isDevelopment) {
     return `https://www.omdbapi.com/?${params}`;
   } else {
+    // In production, use the proxy
     return `/api/omdb/?${params}`;
   }
 };
@@ -27,6 +28,7 @@ const getYoutubeApiUrl = (params: string) => {
   if (isDevelopment) {
     return `https://www.googleapis.com/youtube/v3/search?${params}`;
   } else {
+    // In production, use the proxy
     return `/api/youtube/search?${params}`;
   }
 };
@@ -136,9 +138,14 @@ function App() {
   const [trailerUrl, setTrailerUrl] = useState<string>("");
   const [searchResults, setSearchResults] = useState<MovieDetails[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
     const fetchMovies = async () => {
+      setLoading(true);
+      setError(null);
+      setApiError(false);
+
       try {
         console.log("Starting to fetch movies...");
         console.log(

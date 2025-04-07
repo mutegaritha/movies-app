@@ -1,12 +1,12 @@
 {
   "rewrites": [
     {
-      "source": "/api/omdb",
-      "destination": "https://www.omdbapi.com"
+      "source": "/api/omdb/:path*",
+      "destination": "https://www.omdbapi.com/:path*"
     },
     {
-      "source": "/api/youtube",
-      "destination": "https://www.googleapis.com/youtube/v3"
+      "source": "/api/youtube/:path*",
+      "destination": "https://www.googleapis.com/youtube/v3/:path*"
     }
   ],
   "headers": [
@@ -27,5 +27,8 @@
         }
       ]
     }
-  ]
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite"
 }
