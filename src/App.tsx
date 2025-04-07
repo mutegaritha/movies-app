@@ -6,7 +6,9 @@ import MovieGrid from "./components/MovieGrid";
 
 // Using a more reliable API key
 const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY || "4a3b711b";
-const YOUTUBE_API_KEY = "AIzaSyBvGZtZ6QZQZQZQZQZQZQZQZQZQZQZQZQ"; // You'll need to replace this with your actual YouTube API key
+const YOUTUBE_API_KEY =
+  import.meta.env.VITE_YOUTUBE_API_KEY ||
+  "AIzaSyBvGZtZ6QZQZQZQZQZQZQZQZQZQZQZQZQ"; // You'll need to replace this with your actual YouTube API key
 
 const GENRES = [
   "Action",
@@ -198,14 +200,17 @@ function App() {
 
   const handleMovieClick = async (movieId: string) => {
     try {
+      console.log("Fetching movie details for ID:", movieId);
       const response = await axios.get(
         `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movieId}&plot=full`
       );
       if (response.data.Response === "True") {
         setSelectedMovie(response.data);
+        console.log("Movie details fetched successfully:", response.data.Title);
 
         // Fetch trailer from YouTube
         try {
+          console.log("Attempting to fetch trailer for:", response.data.Title);
           const searchResponse = await axios.get(
             `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
               response.data.Title + " official trailer"
@@ -217,7 +222,35 @@ function App() {
             searchResponse.data.items.length > 0
           ) {
             const videoId = searchResponse.data.items[0].id.videoId;
-            setTrailerUrl(`https://www.youtube.com/embed/${videoId}`);
+            console.log("Trailer found, video ID:", videoId);
+            setTrailerUrl(
+              `https://www.youtube.com/embed/${videoId}?autoplay=0`
+            );
+          } else {
+            console.log("No trailer found for:", response.data.Title);
+            // Try alternative search terms
+            const altSearchResponse = await axios.get(
+              `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+                response.data.Title + " movie trailer"
+              )}&key=${YOUTUBE_API_KEY}&type=video&maxResults=1`
+            );
+
+            if (
+              altSearchResponse.data.items &&
+              altSearchResponse.data.items.length > 0
+            ) {
+              const videoId = altSearchResponse.data.items[0].id.videoId;
+              console.log(
+                "Trailer found with alternative search, video ID:",
+                videoId
+              );
+              setTrailerUrl(
+                `https://www.youtube.com/embed/${videoId}?autoplay=0`
+              );
+            } else {
+              console.log("No trailer found with alternative search");
+              setTrailerUrl("");
+            }
           }
         } catch (trailerErr) {
           console.error("Error fetching trailer:", trailerErr);
@@ -532,11 +565,11 @@ function App() {
                       )}
 
                       {/* Trailer Section */}
-                      {trailerUrl && (
-                        <div className="mb-6">
-                          <h3 className="text-lg font-semibold text-white mb-2">
-                            Trailer
-                          </h3>
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-white mb-2">
+                          Trailer
+                        </h3>
+                        {trailerUrl ? (
                           <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-lg">
                             <iframe
                               src={trailerUrl}
@@ -546,8 +579,24 @@ function App() {
                               allowFullScreen
                             ></iframe>
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="bg-gray-800 rounded-lg p-6 text-center">
+                            <p className="text-gray-400 mb-2">
+                              No trailer available for this movie.
+                            </p>
+                            <a
+                              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
+                                selectedMovie.Title + " official trailer"
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-accent-color hover:underline"
+                            >
+                              Search for trailer on YouTube
+                            </a>
+                          </div>
+                        )}
+                      </div>
 
                       <div className="space-y-4">
                         {selectedMovie.Plot && (
