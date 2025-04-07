@@ -97,22 +97,34 @@ function App() {
           "matrix",
         ];
         const trendingPromises = trendingTerms.map(async (term) => {
-          const response = await axios.get(
-            `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
-          );
-          if (response.data.Response === "True" && response.data.Search) {
-            const movie = response.data.Search[0];
-            const detailResponse = await axios.get(
-              `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+          try {
+            console.log(`Fetching trending movie for term: ${term}`);
+            const response = await axios.get(
+              `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
             );
-            return detailResponse.data;
+            console.log(`Response for ${term}:`, response.data);
+
+            if (response.data.Response === "True" && response.data.Search) {
+              const movie = response.data.Search[0];
+              const detailResponse = await axios.get(
+                `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+              );
+              return detailResponse.data;
+            }
+            return null;
+          } catch (err) {
+            console.error(
+              `Error fetching trending movie for term ${term}:`,
+              err
+            );
+            return null;
           }
-          return null;
         });
 
         const trendingResults = (await Promise.all(trendingPromises)).filter(
           Boolean
         );
+        console.log("Trending movies fetched:", trendingResults.length);
         setTrendingMovies(trendingResults);
 
         // Fetch regular movies based on selected genre
@@ -124,32 +136,38 @@ function App() {
         const allMovies: MovieDetails[] = [];
 
         for (const term of searchTerms) {
-          const searchResponse = await axios.get(
-            `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
-          );
+          try {
+            console.log(`Fetching movies for genre: ${term}`);
+            const searchResponse = await axios.get(
+              `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
+            );
+            console.log(`Search response for ${term}:`, searchResponse.data);
 
-          if (
-            searchResponse.data.Response === "True" &&
-            searchResponse.data.Search
-          ) {
-            const movies = searchResponse.data.Search.slice(0, 5);
+            if (
+              searchResponse.data.Response === "True" &&
+              searchResponse.data.Search
+            ) {
+              const movies = searchResponse.data.Search.slice(0, 5);
 
-            const movieDetailsPromises = movies.map(async (movie: Movie) => {
-              try {
-                const detailResponse = await axios.get(
-                  `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
-                );
-                return detailResponse.data;
-              } catch (detailErr) {
-                console.error("Error fetching movie details:", detailErr);
-                return null;
-              }
-            });
+              const movieDetailsPromises = movies.map(async (movie: Movie) => {
+                try {
+                  const detailResponse = await axios.get(
+                    `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+                  );
+                  return detailResponse.data;
+                } catch (detailErr) {
+                  console.error("Error fetching movie details:", detailErr);
+                  return null;
+                }
+              });
 
-            const movieDetails = (
-              await Promise.all(movieDetailsPromises)
-            ).filter(Boolean);
-            allMovies.push(...movieDetails);
+              const movieDetails = (
+                await Promise.all(movieDetailsPromises)
+              ).filter(Boolean);
+              allMovies.push(...movieDetails);
+            }
+          } catch (err) {
+            console.error(`Error fetching movies for genre ${term}:`, err);
           }
         }
 
@@ -160,13 +178,18 @@ function App() {
               index === self.findIndex((m) => m.imdbID === movie.imdbID)
           );
 
+          console.log("Regular movies fetched:", uniqueMovies.length);
           setMovies(uniqueMovies);
           setFilteredMovies(uniqueMovies);
         } else {
+          console.error("No movies found for any genre");
           setError("No movie details could be fetched");
         }
       } catch (err) {
         console.error("Error fetching movies:", err);
+        if (axios.isAxiosError(err)) {
+          console.error("API error details:", err.response?.data);
+        }
         setError(
           "Failed to fetch movies. Please try again later. Error: " +
             (err instanceof Error ? err.message : String(err))
@@ -211,11 +234,18 @@ function App() {
         // Fetch trailer from YouTube
         try {
           console.log("Attempting to fetch trailer for:", response.data.Title);
+          console.log(
+            "Using YouTube API key:",
+            YOUTUBE_API_KEY ? "API key is set" : "API key is missing"
+          );
+
           const searchResponse = await axios.get(
             `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
               response.data.Title + " official trailer"
             )}&key=${YOUTUBE_API_KEY}&type=video&maxResults=1`
           );
+
+          console.log("YouTube API response:", searchResponse.data);
 
           if (
             searchResponse.data.items &&
@@ -254,6 +284,12 @@ function App() {
           }
         } catch (trailerErr) {
           console.error("Error fetching trailer:", trailerErr);
+          if (axios.isAxiosError(trailerErr)) {
+            console.error(
+              "YouTube API error details:",
+              trailerErr.response?.data
+            );
+          }
           setTrailerUrl("");
         }
 
@@ -261,6 +297,9 @@ function App() {
       }
     } catch (err) {
       console.error("Error fetching movie details:", err);
+      if (axios.isAxiosError(err)) {
+        console.error("OMDB API error details:", err.response?.data);
+      }
       setError("Failed to fetch movie details. Please try again later.");
     }
   };
