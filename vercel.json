@@ -1,12 +1,12 @@
 {
   "rewrites": [
     {
-      "source": "/api/omdb/:path*",
-      "destination": "https://www.omdbapi.com/:path*"
+      "source": "/api/omdb",
+      "destination": "https://www.omdbapi.com"
     },
     {
-      "source": "/api/youtube/:path*",
-      "destination": "https://www.googleapis.com/youtube/v3/:path*"
+      "source": "/api/youtube",
+      "destination": "https://www.googleapis.com/youtube/v3"
     }
   ],
   "headers": [
@@ -16,6 +16,14 @@
         {
           "key": "Access-Control-Allow-Origin",
           "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-Requested-With, Content-Type, Accept"
         }
       ]
     }

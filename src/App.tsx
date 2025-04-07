@@ -81,6 +81,48 @@ export interface MovieDetails {
   trailerId?: string;
 }
 
+const FALLBACK_MOVIES = [
+  {
+    imdbID: "tt0111161",
+    Title: "The Shawshank Redemption",
+    Poster:
+      "https://m.media-amazon.com/images/M/MV5BNDE3ODcxYzMtY2YzZC00NmNlLWJiNDMtZDViZWM2MzIxZDYwXkEyXkFqcGdeQXVyNjAwNDUxODI@._V1_SX300.jpg",
+    Year: "1994",
+    imdbRating: "9.3",
+    Genre: "Drama",
+    Plot: "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
+    Director: "Frank Darabont",
+    Actors: "Tim Robbins, Morgan Freeman",
+    Runtime: "142 min",
+  },
+  {
+    imdbID: "tt0110912",
+    Title: "Pulp Fiction",
+    Poster:
+      "https://m.media-amazon.com/images/M/MV5BNGNhMDIzZTUtNTBlZi00MTRlLWFjM2ItYzViMjE3YzI5MjljXkEyXkFqcGdeQXVyNzkwMjQ5NzM@._V1_SX300.jpg",
+    Year: "1994",
+    imdbRating: "8.9",
+    Genre: "Crime, Drama",
+    Plot: "The lives of two mob hitmen, a boxer, a gangster and his wife, and a pair of diner bandits intertwine in four tales of violence and redemption.",
+    Director: "Quentin Tarantino",
+    Actors: "John Travolta, Uma Thurman",
+    Runtime: "154 min",
+  },
+  {
+    imdbID: "tt0068646",
+    Title: "The Godfather",
+    Poster:
+      "https://m.media-amazon.com/images/M/MV5BM2MyNjYxNmUtYTAwNi00MTYxLWJmNWYtYzZlODY3ZTk3OTFlXkEyXkFqcGdeQXVyNzkwMjQ5NzM@._V1_SX300.jpg",
+    Year: "1972",
+    imdbRating: "9.2",
+    Genre: "Crime, Drama",
+    Plot: "The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.",
+    Director: "Francis Ford Coppola",
+    Actors: "Marlon Brando, Al Pacino",
+    Runtime: "175 min",
+  },
+];
+
 function App() {
   const [movies, setMovies] = useState<MovieDetails[]>([]);
   const [trendingMovies, setTrendingMovies] = useState<MovieDetails[]>([]);
@@ -118,40 +160,49 @@ function App() {
           "titanic",
           "matrix",
         ];
-        const trendingPromises = trendingTerms.map(async (term) => {
-          try {
-            console.log(`Fetching trending movie for term: ${term}`);
-            const response = await axios.get(
-              getOmdbApiUrl(
-                `apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
-              )
-            );
-            console.log(`Response for ${term}:`, response.data);
 
-            if (response.data.Response === "True" && response.data.Search) {
-              const movie = response.data.Search[0];
-              const detailResponse = await axios.get(
+        let trendingResults: MovieDetails[] = [];
+        let allMovies: MovieDetails[] = [];
+        let apiError = false;
+
+        try {
+          const trendingPromises = trendingTerms.map(async (term) => {
+            try {
+              console.log(`Fetching trending movie for term: ${term}`);
+              const response = await axios.get(
                 getOmdbApiUrl(
-                  `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+                  `apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
                 )
               );
-              return detailResponse.data;
-            }
-            return null;
-          } catch (err) {
-            console.error(
-              `Error fetching trending movie for term ${term}:`,
-              err
-            );
-            return null;
-          }
-        });
+              console.log(`Response for ${term}:`, response.data);
 
-        const trendingResults = (await Promise.all(trendingPromises)).filter(
-          Boolean
-        );
-        console.log("Trending movies fetched:", trendingResults.length);
-        setTrendingMovies(trendingResults);
+              if (response.data.Response === "True" && response.data.Search) {
+                const movie = response.data.Search[0];
+                const detailResponse = await axios.get(
+                  getOmdbApiUrl(
+                    `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+                  )
+                );
+                return detailResponse.data;
+              }
+              return null;
+            } catch (err) {
+              console.error(
+                `Error fetching trending movie for term ${term}:`,
+                err
+              );
+              return null;
+            }
+          });
+
+          trendingResults = (await Promise.all(trendingPromises)).filter(
+            Boolean
+          );
+          console.log("Trending movies fetched:", trendingResults.length);
+        } catch (err) {
+          console.error("Error fetching trending movies:", err);
+          apiError = true;
+        }
 
         // Fetch regular movies based on selected genre
         const searchTerms =
@@ -159,70 +210,93 @@ function App() {
             ? ["action", "comedy", "drama", "sci-fi", "horror"]
             : [selectedGenre.toLowerCase()];
 
-        const allMovies: MovieDetails[] = [];
+        try {
+          for (const term of searchTerms) {
+            try {
+              console.log(`Fetching movies for genre: ${term}`);
+              const searchResponse = await axios.get(
+                getOmdbApiUrl(
+                  `apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
+                )
+              );
+              console.log(`Search response for ${term}:`, searchResponse.data);
 
-        for (const term of searchTerms) {
-          try {
-            console.log(`Fetching movies for genre: ${term}`);
-            const searchResponse = await axios.get(
-              getOmdbApiUrl(
-                `apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
-              )
-            );
-            console.log(`Search response for ${term}:`, searchResponse.data);
+              if (
+                searchResponse.data.Response === "True" &&
+                searchResponse.data.Search
+              ) {
+                const movies = searchResponse.data.Search.slice(0, 5);
 
-            if (
-              searchResponse.data.Response === "True" &&
-              searchResponse.data.Search
-            ) {
-              const movies = searchResponse.data.Search.slice(0, 5);
+                const movieDetailsPromises = movies.map(
+                  async (movie: Movie) => {
+                    try {
+                      const detailResponse = await axios.get(
+                        getOmdbApiUrl(
+                          `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+                        )
+                      );
+                      return detailResponse.data;
+                    } catch (detailErr) {
+                      console.error("Error fetching movie details:", detailErr);
+                      return null;
+                    }
+                  }
+                );
 
-              const movieDetailsPromises = movies.map(async (movie: Movie) => {
-                try {
-                  const detailResponse = await axios.get(
-                    getOmdbApiUrl(
-                      `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
-                    )
-                  );
-                  return detailResponse.data;
-                } catch (detailErr) {
-                  console.error("Error fetching movie details:", detailErr);
-                  return null;
-                }
-              });
-
-              const movieDetails = (
-                await Promise.all(movieDetailsPromises)
-              ).filter(Boolean);
-              allMovies.push(...movieDetails);
+                const movieDetails = (
+                  await Promise.all(movieDetailsPromises)
+                ).filter(Boolean);
+                allMovies.push(...movieDetails);
+              }
+            } catch (err) {
+              console.error(`Error fetching movies for genre ${term}:`, err);
             }
-          } catch (err) {
-            console.error(`Error fetching movies for genre ${term}:`, err);
+          }
+        } catch (err) {
+          console.error("Error fetching regular movies:", err);
+          apiError = true;
+        }
+
+        // If API calls failed, use fallback data
+        if (
+          apiError ||
+          (trendingResults.length === 0 && allMovies.length === 0)
+        ) {
+          console.log("Using fallback movie data");
+          setTrendingMovies(FALLBACK_MOVIES);
+          setMovies(FALLBACK_MOVIES);
+          setFilteredMovies(FALLBACK_MOVIES);
+        } else {
+          if (trendingResults.length > 0) {
+            setTrendingMovies(trendingResults);
+          }
+
+          if (allMovies.length > 0) {
+            // Remove duplicates based on imdbID
+            const uniqueMovies = allMovies.filter(
+              (movie, index, self) =>
+                index === self.findIndex((m) => m.imdbID === movie.imdbID)
+            );
+
+            console.log("Regular movies fetched:", uniqueMovies.length);
+            setMovies(uniqueMovies);
+            setFilteredMovies(uniqueMovies);
           }
         }
-
-        if (allMovies.length > 0) {
-          // Remove duplicates based on imdbID
-          const uniqueMovies = allMovies.filter(
-            (movie, index, self) =>
-              index === self.findIndex((m) => m.imdbID === movie.imdbID)
-          );
-
-          console.log("Regular movies fetched:", uniqueMovies.length);
-          setMovies(uniqueMovies);
-          setFilteredMovies(uniqueMovies);
-        } else {
-          console.error("No movies found for any genre");
-          setError("No movie details could be fetched");
-        }
       } catch (err) {
-        console.error("Error fetching movies:", err);
+        console.error("Error in fetchMovies:", err);
         if (axios.isAxiosError(err)) {
           console.error("API error details:", err.response?.data);
         }
+
+        // Use fallback data if all API calls fail
+        console.log("Using fallback movie data due to error");
+        setTrendingMovies(FALLBACK_MOVIES);
+        setMovies(FALLBACK_MOVIES);
+        setFilteredMovies(FALLBACK_MOVIES);
+
         setError(
-          "Failed to fetch movies. Please try again later. Error: " +
-            (err instanceof Error ? err.message : String(err))
+          "Failed to fetch movies from API. Using fallback data instead."
         );
       } finally {
         setLoading(false);
@@ -230,7 +304,7 @@ function App() {
     };
 
     fetchMovies();
-  }, [selectedGenre]);
+  }, [selectedGenre as string]);
 
   useEffect(() => {
     if (selectedGenre === "All") {
