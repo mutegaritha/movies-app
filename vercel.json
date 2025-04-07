@@ -1,0 +1,23 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/omdb/:path*",
+      "destination": "https://www.omdbapi.com/:path*"
+    },
+    {
+      "source": "/api/youtube/:path*",
+      "destination": "https://www.googleapis.com/youtube/v3/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ]
+}

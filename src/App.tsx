@@ -10,6 +10,27 @@ const YOUTUBE_API_KEY =
   import.meta.env.VITE_YOUTUBE_API_KEY ||
   "AIzaSyBvGZtZ6QZQZQZQZQZQZQZQZQZQZQZQZQ"; // You'll need to replace this with your actual YouTube API key
 
+// Helper function to determine if we're in development or production
+const isDevelopment = import.meta.env.MODE === "development";
+
+// Helper function to get the OMDB API URL
+const getOmdbApiUrl = (params: string) => {
+  if (isDevelopment) {
+    return `https://www.omdbapi.com/?${params}`;
+  } else {
+    return `/api/omdb/?${params}`;
+  }
+};
+
+// Helper function to get the YouTube API URL
+const getYoutubeApiUrl = (params: string) => {
+  if (isDevelopment) {
+    return `https://www.googleapis.com/youtube/v3/search?${params}`;
+  } else {
+    return `/api/youtube/search?${params}`;
+  }
+};
+
 const GENRES = [
   "Action",
   "Adventure",
@@ -82,6 +103,7 @@ function App() {
           "Using API key:",
           OMDB_API_KEY ? "API key is set" : "API key is missing"
         );
+        console.log("Environment:", import.meta.env.MODE);
 
         // Fetch trending movies (using popular search terms)
         const trendingTerms = [
@@ -100,14 +122,18 @@ function App() {
           try {
             console.log(`Fetching trending movie for term: ${term}`);
             const response = await axios.get(
-              `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
+              getOmdbApiUrl(
+                `apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
+              )
             );
             console.log(`Response for ${term}:`, response.data);
 
             if (response.data.Response === "True" && response.data.Search) {
               const movie = response.data.Search[0];
               const detailResponse = await axios.get(
-                `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+                getOmdbApiUrl(
+                  `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+                )
               );
               return detailResponse.data;
             }
@@ -139,7 +165,9 @@ function App() {
           try {
             console.log(`Fetching movies for genre: ${term}`);
             const searchResponse = await axios.get(
-              `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
+              getOmdbApiUrl(
+                `apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
+              )
             );
             console.log(`Search response for ${term}:`, searchResponse.data);
 
@@ -152,7 +180,9 @@ function App() {
               const movieDetailsPromises = movies.map(async (movie: Movie) => {
                 try {
                   const detailResponse = await axios.get(
-                    `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+                    getOmdbApiUrl(
+                      `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+                    )
                   );
                   return detailResponse.data;
                 } catch (detailErr) {
@@ -225,7 +255,7 @@ function App() {
     try {
       console.log("Fetching movie details for ID:", movieId);
       const response = await axios.get(
-        `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movieId}&plot=full`
+        getOmdbApiUrl(`apikey=${OMDB_API_KEY}&i=${movieId}&plot=full`)
       );
       if (response.data.Response === "True") {
         setSelectedMovie(response.data);
@@ -240,9 +270,11 @@ function App() {
           );
 
           const searchResponse = await axios.get(
-            `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-              response.data.Title + " official trailer"
-            )}&key=${YOUTUBE_API_KEY}&type=video&maxResults=1`
+            getYoutubeApiUrl(
+              `part=snippet&q=${encodeURIComponent(
+                response.data.Title + " official trailer"
+              )}&key=${YOUTUBE_API_KEY}&type=video&maxResults=1`
+            )
           );
 
           console.log("YouTube API response:", searchResponse.data);
@@ -260,9 +292,11 @@ function App() {
             console.log("No trailer found for:", response.data.Title);
             // Try alternative search terms
             const altSearchResponse = await axios.get(
-              `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-                response.data.Title + " movie trailer"
-              )}&key=${YOUTUBE_API_KEY}&type=video&maxResults=1`
+              getYoutubeApiUrl(
+                `part=snippet&q=${encodeURIComponent(
+                  response.data.Title + " movie trailer"
+                )}&key=${YOUTUBE_API_KEY}&type=video&maxResults=1`
+              )
             );
 
             if (
@@ -315,9 +349,9 @@ function App() {
     setError(null);
     try {
       const searchResponse = await axios.get(
-        `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(
-          query
-        )}&type=movie`
+        getOmdbApiUrl(
+          `apikey=${OMDB_API_KEY}&s=${encodeURIComponent(query)}&type=movie`
+        )
       );
 
       if (
@@ -328,7 +362,9 @@ function App() {
         const movieDetailsPromises = movies.map(async (movie: Movie) => {
           try {
             const detailResponse = await axios.get(
-              `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+              getOmdbApiUrl(
+                `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
+              )
             );
             return detailResponse.data;
           } catch (detailErr) {
