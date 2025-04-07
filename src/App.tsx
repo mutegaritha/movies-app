@@ -15,22 +15,20 @@ const isDevelopment = import.meta.env.MODE === "development";
 
 // Helper function to get the OMDB API URL
 const getOmdbApiUrl = (params: string) => {
-  if (isDevelopment) {
-    return `https://www.omdbapi.com/?${params}`;
-  } else {
-    // In production, use the proxy
-    return `/api/omdb/?${params}`;
-  }
+  const url = isDevelopment
+    ? `https://www.omdbapi.com/?${params}`
+    : `/api/omdb/?${params}`;
+  console.log(`OMDB API URL: ${url}`);
+  return url;
 };
 
 // Helper function to get the YouTube API URL
 const getYoutubeApiUrl = (params: string) => {
-  if (isDevelopment) {
-    return `https://www.googleapis.com/youtube/v3/search?${params}`;
-  } else {
-    // In production, use the proxy
-    return `/api/youtube/search?${params}`;
-  }
+  const url = isDevelopment
+    ? `https://www.googleapis.com/youtube/v3/search?${params}`
+    : `/api/youtube/search?${params}`;
+  console.log(`YouTube API URL: ${url}`);
+  return url;
 };
 
 const GENRES = [
@@ -146,165 +144,93 @@ function App() {
       setError(null);
       setApiError(false);
 
-      try {
-        console.log("Starting to fetch movies...");
-        console.log(
-          "Using API key:",
-          OMDB_API_KEY ? "API key is set" : "API key is missing"
-        );
-        console.log("Environment:", import.meta.env.MODE);
+      console.log("Environment mode:", import.meta.env.MODE);
+      console.log("API keys available:", {
+        omdb: !!OMDB_API_KEY,
+        youtube: !!YOUTUBE_API_KEY,
+      });
 
-        // Fetch trending movies (using popular search terms)
-        const trendingTerms = [
+      try {
+        // Fetch trending movies
+        console.log("Fetching trending movies...");
+        const popularSearchTerms = [
           "avengers",
           "inception",
           "interstellar",
           "joker",
           "dune",
-          "oppenheimer",
-          "barbie",
-          "avatar",
-          "titanic",
-          "matrix",
         ];
 
-        let trendingResults: MovieDetails[] = [];
-        let allMovies: MovieDetails[] = [];
-        let apiError = false;
-
-        try {
-          const trendingPromises = trendingTerms.map(async (term) => {
-            try {
-              console.log(`Fetching trending movie for term: ${term}`);
-              const response = await axios.get(
-                getOmdbApiUrl(
-                  `apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
-                )
-              );
-              console.log(`Response for ${term}:`, response.data);
-
-              if (response.data.Response === "True" && response.data.Search) {
-                const movie = response.data.Search[0];
-                const detailResponse = await axios.get(
-                  getOmdbApiUrl(
-                    `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
-                  )
-                );
-                return detailResponse.data;
-              }
-              return null;
-            } catch (err) {
-              console.error(
-                `Error fetching trending movie for term ${term}:`,
-                err
-              );
-              return null;
-            }
-          });
-
-          trendingResults = (await Promise.all(trendingPromises)).filter(
-            Boolean
-          );
-          console.log("Trending movies fetched:", trendingResults.length);
-        } catch (err) {
-          console.error("Error fetching trending movies:", err);
-          apiError = true;
-        }
-
-        // Fetch regular movies based on selected genre
-        const searchTerms =
-          selectedGenre === "All"
-            ? ["action", "comedy", "drama", "sci-fi", "horror"]
-            : [selectedGenre.toLowerCase()];
-
-        try {
-          for (const term of searchTerms) {
-            try {
-              console.log(`Fetching movies for genre: ${term}`);
-              const searchResponse = await axios.get(
-                getOmdbApiUrl(
-                  `apikey=${OMDB_API_KEY}&s=${term}&type=movie&page=1`
-                )
-              );
-              console.log(`Search response for ${term}:`, searchResponse.data);
-
+        const trendingPromises = popularSearchTerms.map((term: string) =>
+          fetch(
+            getOmdbApiUrl(
+              `apikey=${OMDB_API_KEY}&s=${encodeURIComponent(term)}`
+            )
+          )
+            .then((res) => {
+              console.log(`Response status for ${term}:`, res.status);
+              return res.json();
+            })
+            .then((data) => {
+              console.log(`Data for ${term}:`, data);
               if (
-                searchResponse.data.Response === "True" &&
-                searchResponse.data.Search
+                data.Response === "True" &&
+                data.Search &&
+                data.Search.length > 0
               ) {
-                const movies = searchResponse.data.Search.slice(0, 5);
-
-                const movieDetailsPromises = movies.map(
-                  async (movie: Movie) => {
-                    try {
-                      const detailResponse = await axios.get(
-                        getOmdbApiUrl(
-                          `apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`
-                        )
-                      );
-                      return detailResponse.data;
-                    } catch (detailErr) {
-                      console.error("Error fetching movie details:", detailErr);
-                      return null;
-                    }
-                  }
-                );
-
-                const movieDetails = (
-                  await Promise.all(movieDetailsPromises)
-                ).filter(Boolean);
-                allMovies.push(...movieDetails);
+                return data.Search[0];
               }
-            } catch (err) {
-              console.error(`Error fetching movies for genre ${term}:`, err);
-            }
-          }
-        } catch (err) {
-          console.error("Error fetching regular movies:", err);
-          apiError = true;
+              return null;
+            })
+            .catch((err) => {
+              console.error(`Error fetching trending movie for ${term}:`, err);
+              return null;
+            })
+        );
+
+        const trendingResults = await Promise.all(trendingPromises);
+        console.log("Trending results:", trendingResults);
+        const validTrendingResults = trendingResults.filter(
+          (result) => result !== null
+        );
+
+        if (validTrendingResults.length > 0) {
+          setTrendingMovies(validTrendingResults);
+        } else {
+          // Use fallback data if no trending movies found
+          console.log("Using fallback data for trending movies");
+          setTrendingMovies(FALLBACK_MOVIES);
+          setApiError(true);
         }
 
-        // If API calls failed, use fallback data
-        if (
-          apiError ||
-          (trendingResults.length === 0 && allMovies.length === 0)
-        ) {
-          console.log("Using fallback movie data");
-          setTrendingMovies(FALLBACK_MOVIES);
-          setMovies(FALLBACK_MOVIES);
-          setFilteredMovies(FALLBACK_MOVIES);
+        // Fetch regular movies
+        console.log("Fetching regular movies for genre:", selectedGenre);
+        const response = await fetch(
+          getOmdbApiUrl(
+            `apikey=${OMDB_API_KEY}&s=${encodeURIComponent(selectedGenre)}`
+          )
+        );
+        console.log("Regular movies response status:", response.status);
+        const data = await response.json();
+        console.log("Regular movies data:", data);
+
+        if (data.Response === "True" && data.Search) {
+          setMovies(data.Search);
         } else {
-          if (trendingResults.length > 0) {
-            setTrendingMovies(trendingResults);
-          }
-
-          if (allMovies.length > 0) {
-            // Remove duplicates based on imdbID
-            const uniqueMovies = allMovies.filter(
-              (movie, index, self) =>
-                index === self.findIndex((m) => m.imdbID === movie.imdbID)
-            );
-
-            console.log("Regular movies fetched:", uniqueMovies.length);
-            setMovies(uniqueMovies);
-            setFilteredMovies(uniqueMovies);
-          }
+          // Use fallback data if no movies found
+          console.log("Using fallback data for regular movies");
+          setMovies(FALLBACK_MOVIES);
+          setApiError(true);
         }
       } catch (err) {
-        console.error("Error in fetchMovies:", err);
-        if (axios.isAxiosError(err)) {
-          console.error("API error details:", err.response?.data);
-        }
+        console.error("Error fetching movies:", err);
+        setError("Failed to fetch movies. Please try again later.");
+        setApiError(true);
 
-        // Use fallback data if all API calls fail
-        console.log("Using fallback movie data due to error");
-        setTrendingMovies(FALLBACK_MOVIES);
+        // Use fallback data on error
+        console.log("Using fallback data due to error");
         setMovies(FALLBACK_MOVIES);
-        setFilteredMovies(FALLBACK_MOVIES);
-
-        setError(
-          "Failed to fetch movies from API. Using fallback data instead."
-        );
+        setTrendingMovies(FALLBACK_MOVIES);
       } finally {
         setLoading(false);
       }
@@ -317,7 +243,7 @@ function App() {
     if (selectedGenre === "All") {
       setFilteredMovies(movies);
     } else {
-      const filtered = movies.filter((movie) =>
+      const filtered = movies.filter((movie: MovieDetails) =>
         movie.Genre?.toLowerCase().includes(selectedGenre.toLowerCase())
       );
       setFilteredMovies(filtered);
