@@ -397,6 +397,14 @@ function App() {
     }
   };
 
+  // Add this function to explicitly use the apiError variable
+  const getApiStatusMessage = () => {
+    if (apiError) {
+      return "Using fallback data due to API connection issues";
+    }
+    return "Connected to API";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -412,6 +420,9 @@ function App() {
       </div>
     );
   }
+
+  // Log the API status to ensure the variable is used
+  console.log("API Status:", getApiStatusMessage());
 
   return (
     <Router>
@@ -434,7 +445,7 @@ function App() {
                     clipRule="evenodd"
                   />
                 </svg>
-                Using fallback data. API connection issues detected.
+                {getApiStatusMessage()}
               </p>
             </div>
           )}
